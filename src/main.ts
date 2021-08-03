@@ -1,3 +1,5 @@
+require('dotenv').config()
+
 import { NestFactory, Reflector } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ACLGuard } from './guard/acl.guard';

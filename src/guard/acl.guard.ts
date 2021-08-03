@@ -12,13 +12,25 @@ export class ACLGuard implements CanActivate {
     const ACLClass = context.getClass();
 
     //busca os decoradores utilizados
-    const ACL = this.reflector.getAll<string[]>('ACL', [ACLClass, ACLHandler]);
+    const is_public = this.reflector.getAllAndOverride<string[]>('public', [ACLHandler, ACLClass]);
+    if (is_public) {
+      return true;
+    }
+
+    //busca os decoradores utilizados
+    const ACL = this.reflector.getAllAndOverride<string[]>('ACL', [ACLHandler, ACLClass]);
 
     if (ACL == null) {
       throw new ForbiddenException({
         classe: 'acl.guard.ts',
         msg: 'ACL não definida',
       });
+    }
+
+    console.log(ACL)
+    //rotas públicas não precisam ser validadas
+    if (ACL.indexOf("publico") !== -1) {
+      return true;
     }
 
     const req = context.switchToHttp().getRequest();
