@@ -5,15 +5,18 @@ import { Strategy } from 'passport-local'
 
 @Injectable()
 export class LocalStrategy extends PassportStrategy(Strategy) {
-    constructor(
-        private jwtService: JwtService
-    ) {
+    constructor(private jwtService: JwtService) {
         super();
     }
 
     //presupoem um BODY (POST) com os dados 'username' e 'password'
     async validate(username: string, password: string) {
-        const infoToken = { id: 1, nome: 'Walace' };
+        const infoToken = {
+            id: 1, nome: 'Walace', acl: [
+                "admin",
+                "superadmin"
+            ]
+        };
         return this.jwtService.sign(infoToken);
     }
 }

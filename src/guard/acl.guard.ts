@@ -1,20 +1,31 @@
 import { CanActivate, ExecutionContext, ForbiddenException, HttpException, Injectable } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { Reflector } from '@nestjs/core';
+import { AuthGuard } from '@nestjs/passport';
 
 @Injectable()
-export class ACLGuard implements CanActivate {
-  constructor(private reflector: Reflector) { }
+export class ACLGuard extends AuthGuard('jwt') {
+  constructor(private reflector: Reflector) {
+    super();
+  }
 
-  canActivate(context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean> {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     //busca as referências para a função que será executada e classe que contém essa função.
     const ACLHandler = context.getHandler();
     const ACLClass = context.getClass();
 
-    //busca os decoradores utilizados
-    const is_public = this.reflector.getAllAndOverride<string[]>('public', [ACLHandler, ACLClass]);
+    const is_public = this.reflector.getAllAndOverride<boolean>('is_public', [ACLHandler, ACLClass]);
+
+    //não requer qualquer autenticação.
     if (is_public) {
       return true;
+    }
+
+    //lança exceção caso não o usuário não seja autenticado!
+    const autenticado = await super.canActivate(context);
+
+    if (!autenticado) {
+      return false;
     }
 
     //busca os decoradores utilizados
@@ -27,35 +38,46 @@ export class ACLGuard implements CanActivate {
       });
     }
 
-    console.log(ACL)
-    //rotas públicas não precisam ser validadas
+    //qualque usuário autenticado pode acessar!
     if (ACL.indexOf("publico") !== -1) {
       return true;
     }
 
-    const req = context.switchToHttp().getRequest();
+    const userACL = context.switchToHttp().getRequest().user.acl;
 
-    if (req.user == null) {
+
+    if (!Array.isArray(userACL)) {
       throw new ForbiddenException({
         classe: 'acl.guard.ts',
-        msg: 'usuário nulo'
+        msg: 'usuário sem acl válida'
       });
     }
 
-    if (typeof req.user.acl !== typeof Array) {
-      throw new ForbiddenException({
-        classe: 'acl.guard.ts',
-        msg: 'acl inválida'
-      });
-    }
-
-    if (req.user.acl.indexOf(ACL) === -1) {
-      throw new ForbiddenException({
-        classe: 'acl.guard.ts',
-        msg: 'usuário sem a permissão necessária'
-      });
+    for (let i = 0; i < ACL.length; i++) {
+      if (userACL.indexOf(ACL[i]) === -1) {
+        throw new ForbiddenException({
+          classe: 'acl.guard.ts',
+          msg: 'usuário sem a permissão necessária'
+        });
+      }
     }
 
     return true;
+  }
+
+  handleRequest(err: any, user: any, info: any, context: any, status?: any) {
+    if (err) {
+      throw err;
+    }
+
+    if (info instanceof Error) {
+      const { message, name } = info;
+
+      throw new HttpException({
+        name, message
+      }, 402)
+    }
+
+    return user;
   }
 }

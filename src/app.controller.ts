@@ -1,6 +1,6 @@
 import { Controller, Get, Inject, Post, Request, SetMetadata, UseGuards } from '@nestjs/common';
 import { AppService } from './app.service';
-import { ACL } from "src/decorator/acl.decorator";
+import { ACL, Public } from "src/decorator/acl.decorator";
 import { AuthGuard } from '@nestjs/passport';
 
 @Controller()
@@ -10,12 +10,14 @@ export class AppController {
     private readonly appService: AppService,
   ) { }
 
-  @Get('/admin') @ACL("admin")
+  @Get('/admin')
+  @ACL("admin", "superadmin")
   getHello(): string {
     return this.appService.getHello();
   }
 
   @Post('login')
+  @Public()
   @UseGuards(AuthGuard("local"))
   login(@Request() req) {
     return {
@@ -24,7 +26,6 @@ export class AppController {
   }
 
   @Get()
-  @UseGuards(AuthGuard("jwt"))
   info(@Request() req){
     return req.user;
   }
