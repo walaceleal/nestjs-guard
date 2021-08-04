@@ -2,6 +2,7 @@ import { CanActivate, ExecutionContext, ForbiddenException, HttpException, Injec
 import { Observable } from 'rxjs';
 import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
+import { ACL } from 'src/decorator/acl.decorator';
 
 @Injectable()
 export class ACLGuard extends AuthGuard('jwt') {
@@ -11,10 +12,10 @@ export class ACLGuard extends AuthGuard('jwt') {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     //busca as referências para a função que será executada e classe que contém essa função.
-    const ACLHandler = context.getHandler();
-    const ACLClass = context.getClass();
+    const contextoFuncao = context.getHandler();
+    const contextoClasse = context.getClass();
 
-    const is_public = this.reflector.getAllAndOverride<boolean>('is_public', [ACLHandler, ACLClass]);
+    const is_public = this.reflector.getAllAndOverride<boolean>('is_public', [contextoFuncao, contextoClasse]);
 
     //não requer qualquer autenticação.
     if (is_public) {
@@ -29,7 +30,19 @@ export class ACLGuard extends AuthGuard('jwt') {
     }
 
     //busca os decoradores utilizados
-    const ACL = this.reflector.getAllAndOverride<string[]>('ACL', [ACLHandler, ACLClass]);
+    const ACLClasse = this.reflector.get('ACL', contextoClasse);
+    const ACLFuncao = this.reflector.get('ACL', contextoFuncao);
+
+    let ACL: string;
+
+    if (ACLFuncao == null) {
+      ACL = ACLClasse;
+    } else if (ACLFuncao.acl != null) {
+      ACL = ACLFuncao.acl;
+    } else {
+      ACL = `${ACLClasse}:${ACLFuncao.verbo}`;
+    }
+
 
     if (ACL == null) {
       throw new ForbiddenException({
@@ -45,6 +58,7 @@ export class ACLGuard extends AuthGuard('jwt') {
 
     const userACL = context.switchToHttp().getRequest().user.acl;
 
+    console.log(ACL, userACL)
 
     if (!Array.isArray(userACL)) {
       throw new ForbiddenException({
@@ -53,13 +67,11 @@ export class ACLGuard extends AuthGuard('jwt') {
       });
     }
 
-    for (let i = 0; i < ACL.length; i++) {
-      if (userACL.indexOf(ACL[i]) === -1) {
-        throw new ForbiddenException({
-          classe: 'acl.guard.ts',
-          msg: 'usuário sem a permissão necessária'
-        });
-      }
+    if (userACL.indexOf(ACL) === -1) {
+      throw new ForbiddenException({
+        classe: 'acl.guard.ts',
+        msg: 'usuário sem a permissão necessária'
+      });
     }
 
     return true;

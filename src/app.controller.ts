@@ -3,6 +3,7 @@ import { AppService } from './app.service';
 import { ACL, Public } from "src/decorator/acl.decorator";
 import { AuthGuard } from '@nestjs/passport';
 
+
 @Controller()
 @ACL("publico")
 export class AppController {
@@ -11,7 +12,6 @@ export class AppController {
   ) { }
 
   @Get('/admin')
-  @ACL("admin", "superadmin")
   getHello(): string {
     return this.appService.getHello();
   }
